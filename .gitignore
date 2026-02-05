@@ -1,0 +1,21 @@
+# Environnements virtuels
+bot-env/
+env/
+venv/
+.venv/
+.env
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Django
+db.sqlite3
+*.log
+
+# OS
+.DS_Store
+
+.pg_service.conf
+.my_pgpass

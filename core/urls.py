@@ -16,7 +16,9 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from discord_bot.views import join_voice_view
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('join_voice_view/', join_voice_view, name="join_voice_view"),
 ]

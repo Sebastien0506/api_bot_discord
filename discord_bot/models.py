@@ -17,7 +17,7 @@ class PendingAction(models.Model):
     action = models.CharField(max_length=50, choices=ACTION_CHOICES)
     channel_id = models.BigIntegerField()
     user_id = models.BigIntegerField()
-
+    payload = models.JSONField(null=True, blank=True)
     done = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -3,6 +3,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from discord_bot.models import PendingAction
 from rest_framework import status
+from discord_bot.services.generate_audio_message_service import generate_audio_message_service
 
 @api_view(["POST"])
 def join_voice_view(request):
@@ -28,3 +29,26 @@ def join_voice_view(request):
         "status": "ok",
         "message" : "Action enregistrée"
     })
+
+@api_view(["POST"])
+def voice_message(request):
+    payload = request.data.get("payload")
+
+    if not payload or "message" not in payload:
+        return Response({"error": "Aucun message"}, status=400)
+
+    message = payload["message"]
+
+    channel_id = int(request.data.get("channel_id"))
+    user_id = int(request.data.get("user_id"))
+
+    PendingAction.objects.create(
+        action="voice_message",
+        channel_id=channel_id,
+        user_id=user_id,
+        payload={
+            "message": message
+        }
+    )
+
+    return Response({"status": "ok"})

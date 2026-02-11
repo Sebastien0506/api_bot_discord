@@ -8,8 +8,16 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "core.settings")
 import django
 django.setup()
 import discord
+if sys.platform == "darwin":
+    try : 
+        discord.opus.load_opus("/opt/homebrew/lib/libopus.dylib")
+        print("✅ OPUS chargé manuellement")
+    except Exception as e :
+        print("❌ Erreur OPUS :", e)
+print("🧪 OPUS chargé ?", discord.opus.is_loaded())
+import asyncio
 from discord.ext import commands
-
+from discord_bot.services.generate_audio_message_service import generate_audio_message_service
 from discord.ext import commands, tasks
 from discord_bot.services.pending_actions_service import (
     get_pending_actions, 
@@ -44,43 +52,80 @@ async def on_ready():
 
 @tasks.loop(seconds=1)
 async def process_pending_actions():
-
     actions = await get_pending_actions()
 
-    if not actions :
+    if not actions:
         return
-    
+
     print("👀 Tick process_pending_actions")
-    #Pour tout les actions
+
     for action in actions:
         print(f"➡️ Action trouvée : {action}")
-        
-        #On récupère tous les channel
-        channel = bot.get_channel(action.channel_id)
-        print("CHANNEL =", channel)
 
-        if not channel:
-            print("❌ Guild introuvable")
-            continue
-        #On récupère les membres de chaque channel
-        member = discord.utils.get(channel.members, id=action.user_id)
-        print("MEMBER =", member)
+        # ─────────────────────────────
+        # ACTION : JOIN VOICE
+        # ─────────────────────────────
+        if action.action == "join_voice":
+            channel = bot.get_channel(action.channel_id)
+            print("CHANNEL =", channel)
 
-        if not member:
-            print("❌ Le membre n'est pas dans le salon vocal.")
-            continue
+            if not channel:
+                print("❌ Channel introuvable")
+                continue
 
-        # 👉 S’il est bien en vocal
-        channel = member.voice.channel
-        print("🎙️ Channel =", channel)
+            voice_client = channel.guild.voice_client
 
-        voice_client = channel.guild.voice_client
-        #Si le bot n'est pas connecté on le connect
-        if voice_client is None:
-            await channel.connect()
-        else : 
-            await voice_client.move_to(channel)
+            if voice_client is None:
+                await channel.connect()
+            else:
+                await voice_client.move_to(channel)
 
+            print("✅ Bot connecté au salon vocal")
+
+        # ─────────────────────────────
+        # ACTION : VOICE MESSAGE
+        # ─────────────────────────────
+        elif action.action == "voice_message":
+            payload = action.payload
+
+            if not payload or "message" not in payload:
+                print("❌ Payload manquant")
+                await mark_action_done(action)
+                continue
+
+            message = payload["message"]
+
+            #Salon vocal ciblé par l'action
+            action_channel = bot.get_channel(action.channel_id)
+            if not action_channel :
+                print("❌ Channel introuvable")
+                continue
+            
+            vc = action_channel.guild.voice_client
+            if not vc or not vc.is_connected():
+                print("❌ Bot pas connecté en vocal")
+                continue
+
+            filepath = generate_audio_message_service(message)
+            vc.play(discord.FFmpegPCMAudio(filepath))
+
+            # 3️⃣ jouer l’audio
+            if vc.is_playing():
+                vc.stop()
+
+            audio = discord.FFmpegPCMAudio(filepath)
+            vc.play(audio)
+
+            print("▶️ Lecture démarrée")
+
+            while vc.is_playing():
+                await asyncio.sleep(0.2)
+
+            print("⏹️ Lecture terminée")
+
+        # ─────────────────────────────
+        # FIN : action traitée
+        # ─────────────────────────────
         await mark_action_done(action)
         print("✅ Action exécutée et marquée comme done")
 
